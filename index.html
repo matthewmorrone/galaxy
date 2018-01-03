@@ -67,7 +67,6 @@ output {
 <output></output>
 <input type="text" name="console" id="console" value='' />
 </body>
-
 <script id="vertex_shader" type="x-shader/x-vertex">
 varying vec3 vNormal;
 void main() {
@@ -88,15 +87,15 @@ void main() {
 <script>
 
 alasql("CREATE TABLE stars (name string, category string, color string, size number, x number, y number, z number);");
-let history = []
-let cursor = 0
-cursor = 0
-history.push('SELECT Count(*) FROM stars')
-cursor++
-history.push('SELECT * FROM stars ORDER BY RANDOM() LIMIT 3')
-cursor++
-history.push('SELECT category, Count(category) FROM stars GROUP BY category')
-cursor++
+// let history = []
+// let cursor = 0
+// cursor = 0
+// history.push('SELECT Count(*) FROM stars')
+// cursor++
+// history.push('SELECT * FROM stars ORDER BY RANDOM() LIMIT 3')
+// cursor++
+// history.push('SELECT category, Count(category) FROM stars GROUP BY category')
+// cursor++
 
 function print() {
 	let output = arguments[0]
@@ -112,7 +111,7 @@ function print() {
 	result = result.replace(/,/gm, '\t')
 	result = result.trim()
 	$('output').text($('output').text()+'\n'+result)
-	$('output').text($('output').text().trim())
+	// $('output').text($('output').text().trim())
 	$('output').scrollTop($('output')[0].scrollHeight)
 }
 
@@ -146,8 +145,45 @@ panel.addPanel({opacity: .75, align: "left"})
 .addButton('axis', function() {
 	if (galaxy) {
 		galaxy.axis.visible = !galaxy.axis.visible
-		controls.update()
-		renderer.render(scene, camera)
+		simulation.controls.update()
+		simulation.renderer.render(simulation.scene, simulation.camera)
+	}
+})
+.addButton('bounds', function() {
+	if (galaxy) {
+		let bounds = {
+			maxx: alasql('select max(x) as maxx from stars')[0].maxx,
+			minx: alasql('select min(x) as minx from stars')[0].minx,
+			maxy: alasql('select max(y) as maxy from stars')[0].maxy,
+			miny: alasql('select min(y) as miny from stars')[0].miny,
+			maxz: alasql('select max(z) as maxz from stars')[0].maxz,
+			minz: alasql('select min(z) as minz from stars')[0].minz,
+		}
+		console.log(bounds)
+
+		let ringRadius = Math.max(...[bounds.maxx, Math.abs(bounds.minx), bounds.maxz, Math.abs(bounds.minz)])
+
+		let ringGeometry, ringMesh, ringOutline
+		ringGeometry = new THREE.CircleGeometry(ringRadius, 90)
+		ringMesh = new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, opacity: .5, side: THREE.BackSide})
+		ringOutline = new THREE.Line(ringGeometry, ringMesh);
+		ringOutline.geometry.vertices.shift();
+		ringOutline.position.set(0, bounds.maxy, 0);
+		ringOutline.rotation.set(Math.PI/2, 0, 0);
+		galaxy.galaxy.add(ringOutline)
+
+		ringGeometry = new THREE.CircleGeometry(ringRadius, 90)
+		ringMesh = new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, opacity: .5, side: THREE.BackSide})
+		ringOutline = new THREE.Line(ringGeometry, ringMesh);
+		ringOutline.geometry.vertices.shift();
+		ringOutline.position.set(0, bounds.miny, 0);
+		ringOutline.rotation.set(Math.PI/2, 0, 0);
+		galaxy.galaxy.add(ringOutline)
+
+
+
+		simulation.renderer.render(simulation.scene, simulation.camera)
+
 	}
 })
 .addButton('Generate', function() {
@@ -157,8 +193,8 @@ panel.addPanel({opacity: .75, align: "left"})
 	galaxy = new Galaxy()
 	simulation.scene.add(galaxy.galaxy)
 
-	print(alasql('SELECT COUNT(*) FROM stars'))
-	print(alasql('SELECT category, Count(category) FROM stars GROUP BY category'))
+	// print(alasql('SELECT COUNT(*) FROM stars'))
+	// print(alasql('SELECT category, Count(category) FROM stars GROUP BY category'))
 })
 // .addNumberInput(parameters.view, 'x', 	{dp: 0})
 // .addNumberInput(parameters.view, 'y', 	{dp: 0})
@@ -219,6 +255,7 @@ function Galaxy() {
 	this.distribution = parameters.distribution.selection
 	this.center = 0
 	this.axis = new THREE.AxisHelper(this.radius)
+	this.axis.visible = false
 	this.fog = new THREE.Fog(0xffffff)
 	this.starScale = .025
 	this.starMag = .5
@@ -230,8 +267,10 @@ function Galaxy() {
 		return Math.random() * Math.PI * 2;
 	}
 
-	let i, dd, dr, dx, dy, dz, star
-	let starData, starClass, starColor, starRadius, starGeometry, starMaterial, starMesh
+	let i, j, dd, dr, dx, dy, dz, star, p1, p2
+	let starData, starClass, starColor, starRadius, starGeometry, starMaterial, starMesh, starLight
+	let sprite, spriteMaterial
+	let material, geometry, line
 
 	// let image
 	// image.src = 'pulsar_diffuse_end.png'
@@ -256,6 +295,31 @@ function Galaxy() {
 		dy = Distributions.normal() * parameters.planarOffset - (parameters.planarOffset/2)
 		dz = Math.sin(dr) * dd;
 
+		// p1 = new THREE.Vector3(dx, dy, dz)
+		// for(j = 0; j < i; j++) {
+		// 	p2 = this.galaxy.children[j].position
+		// 	while (p1.distanceTo(p2) < 20) {
+		// 		dd = this.randomDistance()
+		// 		dr = this.randomAngle()
+		// 		dx = Math.cos(dr) * dd;
+		// 		dy = Distributions.normal() * parameters.planarOffset - (parameters.planarOffset/2)
+		// 		dz = Math.sin(dr) * dd;
+		// 		p1 = new THREE.Vector3(dx, dy, dz)
+		// 	}
+		// }
+		// for(j = 0; j < i; j++) {
+		// 	p2 = this.galaxy.children[j].position
+		// 	if (p1.distanceTo(p2) > 20) continue
+		// 	material = new THREE.LineBasicMaterial({color: "green"});
+		// 	geometry = new THREE.Geometry();
+		// 	geometry.vertices.push(p1);
+		// 	geometry.vertices.push(p2);
+		// 	line = new THREE.Line(geometry, material);
+		// 	this.galaxy.add(line);
+		// }
+
+
+
 		starData 	= starClasses.peek()[0]
 		starClass 	= starData.key
 		// starColor 	= starData.data.color
@@ -271,22 +335,44 @@ function Galaxy() {
 			// // bumpMap: map,
 			// // bumpScale: 0.05,
 			// reflectivity: .5,
-			// transparent: true,
-			// opacity: 1
+			transparent: true,
+			opacity: 1
 		});
 		starMesh = new THREE.Mesh(starGeometry, starMaterial);
 
 		starMesh.position.set(dx, dy, dz);
 		starMesh.name = starNames.splice(Math.floor(Math.random() * starNames.length), 1)[0];
 
+
+		// starLight = new THREE.PointLight(starColor, 1, 0, 2);
+		// starLight.position.set(dx, dy, dz);
+		// this.galaxy.add(starLight)
+
+		// SUPER SIMPLE GLOW EFFECT
+		// use sprite because it appears the same from all angles
+		spriteMaterial = new THREE.SpriteMaterial({
+			map: new THREE.ImageUtils.loadTexture('glow.png'),
+			useScreenCoordinates: false,
+			color: starColor,
+			transparent: true,
+			opacity: .25,
+			blending: THREE.AdditiveBlending
+		});
+		sprite = new THREE.Sprite(spriteMaterial);
+		sprite.scale.set(10, 10, 1.0);
+		starMesh.add(sprite);
+		// this.galaxy.add(sprite)
+
+
+
 		alasql("INSERT INTO stars VALUES (?,?,?,?,?,?,?)", [
 			starMesh.name,
 			starClass,
 			starColor,
 			starRadius,
-			starMesh.position.x,
-			starMesh.position.y,
-			starMesh.position.z
+			starMesh.position.x.toFixed(1),
+			starMesh.position.y.toFixed(1),
+			starMesh.position.z.toFixed(1)
 		]);
 
 		this.galaxy.add(starMesh)
@@ -342,7 +428,7 @@ function Simulation() {
 		this.scene = new THREE.Scene();
 		this.scene.background = new THREE.Color(0x000000);
 
-		let skyGeometry = new THREE.CubeGeometry(10000, 10000, 10000);
+		let skyGeometry = new THREE.BoxGeometry(10000, 10000, 10000);
 		let skyChoice = Math.floor(Math.random() * 5) + 1
 		let skyTextureCube = THREE.ImageUtils.loadTextureCube([
 			"starfield-1.png", "starfield-2.png", "starfield-1.png",
@@ -365,17 +451,17 @@ function Simulation() {
 		this.camera = new THREE.PerspectiveCamera(this.fov, this.aspect, this.near, this.far);
 		this.camera.lookAt(this.scene.position);
 
-		this.point = new THREE.PointLight(0xFFFFFF, 1, 0, 2);
-		this.point.position.set(0, 0, 0);
-		this.scene.add(this.point);
+		// this.point = new THREE.PointLight(0xFFFFFF, 1, 0, 2);
+		// this.point.position.set(0, 0, 0);
+		// this.scene.add(this.point);
 
-		this.ambient = new THREE.AmbientLight(0xEEEEEE);
+		this.ambient = new THREE.AmbientLight(0xffffff);
 		this.scene.add(this.ambient);
 
 		this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
 		this.controls.enableContextMenu = false;
-		this.controls.enablePan = false;
-		this.controls.enableKeys = true;
+		this.controls.enablePan = true;
+		this.controls.enableKeys = false;
 		// this.camera.position.set(parameters.view.x, parameters.radius*2, parameters.view.z);
 		this.camera.position.set(325.64099652857743, 170.8123831924949, 356.26545037087135);
 
@@ -393,6 +479,7 @@ simulation.setup()
 
 
 $(document).on('click', event => {
+	return
 	try {
 		if (!galaxy) {
 			let galaxy = new Galaxy()
@@ -406,12 +493,32 @@ $(document).on('click', event => {
 		if (simulation.intersects.length > 0) {
 			for(let inter in simulation.intersects) {
 				print(simulation.intersects[inter].object.name)
+
+				let material, geometry, line, color = 'green'
+				let p1 = simulation.intersects[inter].object.position, p2
+				for(let j = 0; j < galaxy.galaxy.children.length; j++) {
+					p2 = galaxy.galaxy.children[j].position
+					if (p1.distanceTo(p2) > 50) continue
+
+					// if      (p1.distanceTo(p2) < 50) color = 'green'
+					// else if (p1.distanceTo(p2) < 100 && p1.distanceTo(p2) >= 50) color = 'yellow'
+					// else color = 'red'
+
+					material = new THREE.LineBasicMaterial({color: color});
+					geometry = new THREE.Geometry();
+					geometry.vertices.push(p1);
+					geometry.vertices.push(p2);
+					line = new THREE.Line(geometry, material);
+					galaxy.galaxy.add(line);
+				}
+
 			}
 		}
-		console.log(simulation.camera.position)
 
 
-	} catch(e) {}
+	} catch(e) {
+		console.log(e)
+	}
 
 })
 
@@ -430,28 +537,28 @@ $(function() {
 
 	$('output').resizable({handles: 'n'})
 
-	setTimeout(() => {
-		$('input[value="Generate"]').click()
-	}, 1000)
+	// setTimeout(() => {
+	// 	$('input[value="Generate"]').click()
+	// }, 1000)
 
 	$(document).on('keydown', '#console', function(e) {
 		if (e.which === 13) {
-			history.push(e.target.value)
-			cursor++
+			// history.push(e.target.value)
+			// cursor++
 			let result = alasql(e.target.value)
 			print(result)
 			$(e.target).val('')
 		}
-		if (e.which === 38) {
-			cursor--
-			if (cursor < 0) cursor = 0
-			$(e.target).val(history[cursor])
-		}
-		if (e.which === 40) {
-			cursor++
-			if (cursor > history.length) cursor = history.length
-			$(e.target).val(history[cursor])
-		}
+		// if (e.which === 38) {
+		// 	cursor--
+		// 	if (cursor < 0) cursor = 0
+		// 	$(e.target).val(history[cursor])
+		// }
+		// if (e.which === 40) {
+		// 	cursor++
+		// 	if (cursor > history.length) cursor = history.length
+		// 	$(e.target).val(history[cursor])
+		// }
 	})
 })
 
