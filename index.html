@@ -429,8 +429,8 @@ function Simulation() {
         let skyTextureCube = THREE.ImageUtils.loadTextureCube([
             // "starfield-1.png", "starfield-2.png", "starfield-1.png",
             // "starfield-2.png", "starfield-1.png", "starfield-2.png"
-            `skybox/skybox_gen_${skyChoice}-0.png`, `skybox/skybox_gen_${skyChoice}-1.png`, `skybox/skybox_gen_${skyChoice}-2.png`,
-            `skybox/skybox_gen_${skyChoice}-3.png`, `skybox/skybox_gen_${skyChoice}-4.png`, `skybox/skybox_gen_${skyChoice}-5.png`,
+            `/skybox/skybox_gen_${skyChoice}-0.png`, `/skybox/skybox_gen_${skyChoice}-1.png`, `/skybox/skybox_gen_${skyChoice}-2.png`,
+            `/skybox/skybox_gen_${skyChoice}-3.png`, `/skybox/skybox_gen_${skyChoice}-4.png`, `/skybox/skybox_gen_${skyChoice}-5.png`,
         ]);
         let skyShader = THREE.ShaderLib["cube"];
         skyShader.uniforms["tCube"].value = skyTextureCube;
